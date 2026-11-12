@@ -1,0 +1,36 @@
+{
+  "gm8": {
+    "rel": "game:p_rel.txt",
+    "rooted": "game:p_rooted.txt",
+    "fwd": "game:PSub/p_fwd.txt",
+    "up": "game:p_up.txt",
+    "drive": "game:probe/p_drive.txt",
+    "case_a": null,
+    "case_b": "game:PCase/P_CASE.TXT",
+    "wd": "game:p_wd.txt",
+    "pd": "game:p_pd.txt",
+    "tmp": null,
+    "tmp3": "appdata:probe/p_tmp3.txt",
+    "env_appdata": "appdata:probe/p_env_appdata.txt",
+    "env_local": "appdata:probe/p_env_local.txt",
+    "env_profile": "appdata:probe/p_env_profile.txt",
+    "ini": "game:p_ini.ini",
+    "emptydir": "game:p_emptydir"
+  },
+  "gms1": {
+    "rel": "appdata:<Name>/p_rel.txt",
+    "rooted": null,
+    "fwd": "appdata:<Name>/PSub/p_fwd.txt",
+    "up": "appdata:p_up.txt",
+    "drive": null,
+    "case_a": null,
+    "case_b": "appdata:<Name>/PCase/P_CASE.TXT",
+    "wd": "appdata:<Name>/p_wd.txt",
+    "sid": "appdata:<Name>/p_sid.txt",
+    "tmp": null,
+    "env_appdata": null,
+    "env_local": null,
+    "pd": "appdata:<Name>/p_pd.txt",
+    "ini": "appdata:<Name>/p_ini.ini"
+  }
+}

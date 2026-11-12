@@ -1,0 +1,5 @@
+# wrangler, for deploying the hosted runtime. Both listed: pnpm fails an install on a build script it
+# has no verdict for.
+allowBuilds:
+  esbuild: true
+  workerd: true

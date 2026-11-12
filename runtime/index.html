@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>GEMS Playground</title>
+    <style>
+      /* One column of setup, centred; then a slim bar over the game. Neutrals lean toward the teal accent. */
+      :root {
+        color-scheme: light dark;
+        --bg: #f4f6f7; --surface: #ffffff; --field: #fbfcfc; --fg: #121619; --muted: #56606a;
+        --line: #dfe4e7; --line-strong: #bcc5cb; --chip: #eaeff1;
+        --accent: #0b6b63; --accent-hover: #08564f; --accent-fg: #ffffff; --accent-soft: #d4ebe8;
+        --danger: #b3261e; --danger-soft: #fcefee; --danger-line: #f0c6c2; --ok: #18794e;
+        --shadow: 0 1px 2px #1216190d, 0 8px 24px #12161912;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0e1113; --surface: #161a1d; --field: #111517; --fg: #e6eaec; --muted: #9aa5ad;
+          --line: #262d32; --line-strong: #3a444b; --chip: #20272b;
+          --accent: #4cc9b8; --accent-hover: #6dd8c9; --accent-fg: #04201d; --accent-soft: #163a36;
+          --danger: #ff8f84; --danger-soft: #2a1513; --danger-line: #5a2622; --ok: #5bd394;
+          --shadow: 0 1px 2px #0000004d, 0 8px 24px #00000040;
+        }
+      }
+      html, body { margin: 0; height: 100%; display: flex; flex-direction: column; }
+      html { font: 15px/1.55 var(--sans); -webkit-text-size-adjust: 100%; }
+      body { flex: 1; background: var(--bg); color: var(--fg); }
+      [hidden] { display: none !important; }
+      * { box-sizing: border-box; }
+      code, .mono { font-family: var(--mono); font-size: 0.87em; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+      /* The game letterboxed in the window: the pointer mapping in host.ts assumes exactly this. */
+      #stage { flex: 1; min-height: 0; }
+      #stage canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+      #stage { background: #000; }
+
+      /* Game state: a slim bar above the stage. */
+      #bar {
+        flex: none; display: flex; align-items: center; gap: 10px; height: 40px; font-size: 13px;
+        padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
+        background: var(--surface); border-bottom: 1px solid var(--line);
+      }
+      #bar .brand { flex: none; font-weight: 650; }
+      @media (max-width: 480px) { #bar .wide { display: none; } }
+      #emulator { flex: 0 1 auto; min-width: 0; padding: 1px 8px; border-radius: 999px; background: var(--chip); }
+      #feed { flex: 1 1 0; min-width: 0; color: var(--muted); }
+      #emulator, #feed { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #status { flex: none; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+      #status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+      #status.running { color: var(--ok); }
+      #status.error { color: var(--danger); }
+      #bar .brand::before {
+        content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 8px; vertical-align: 1px;
+        background: var(--accent); transform: rotate(45deg); border-radius: 2px;
+      }
+
+      /* Landing and loading cover the stage until the game runs. */
+      .screen {
+        position: fixed; inset: 0; overflow-y: auto; display: flex; background: var(--bg);
+        padding-block: max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-bottom, 0px));
+        padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+      }
+      .column { margin: auto; width: 100%; max-width: 32rem; display: flex; flex-direction: column; gap: 24px; }
+      .wordmark { margin: 0; font-size: 13px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+      .wordmark::before {
+        content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 10px; vertical-align: 1px;
+        background: currentColor; transform: rotate(45deg); border-radius: 2px;
+      }
+      h1 { margin: 0; font-size: 28px; line-height: 1.2; font-weight: 680; letter-spacing: -0.015em; text-wrap: balance; }
+      .lede { margin: 0; color: var(--muted); max-width: 30rem; }
+      .intro { display: flex; flex-direction: column; gap: 10px; }
+      .card {
+        display: flex; flex-direction: column; gap: 22px; padding: 24px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+      }
+      @media (max-width: 480px) {
+        h1 { font-size: 24px; }
+        .card { padding: 18px; }
+      }
+
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .label { font-weight: 600; font-size: 14px; }
+      .hint { margin: 0; font-size: 13px; color: var(--muted); }
+      .error { margin: 0; font-size: 13px; font-weight: 500; color: var(--danger); }
+      input[type="url"] {
+        width: 100%; height: 44px; padding: 0 12px; font: 14px var(--mono); color: var(--fg);
+        background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px;
+      }
+      input[type="url"]::placeholder { color: var(--muted); opacity: 0.75; }
+      input[type="url"]:hover { border-color: var(--muted); }
+      input[type="url"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      [aria-invalid="true"], .picker:has([aria-invalid="true"]) { border-color: var(--danger) !important; }
+      input[type="url"][aria-invalid="true"]:focus { box-shadow: 0 0 0 3px var(--danger-soft); }
+
+      /* The folder picker: a whole-row control around a visually hidden file input. */
+      .picker {
+        display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 12px;
+        background: var(--field); border: 1px dashed var(--line-strong); border-radius: 8px; cursor: pointer;
+      }
+      .picker.chosen, .picker.static { border-style: solid; }
+      .picker.static { cursor: default; }
+      .picker:hover:not(.static) { border-color: var(--accent); }
+      .picker:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .picker input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+      .picker svg { flex: none; width: 36px; height: 36px; padding: 8px; border-radius: 8px; color: var(--accent); background: var(--accent-soft); }
+      .picker .text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .picker .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .picker .meta { font-size: 13px; color: var(--muted); }
+      .picker .browse { flex: none; font-size: 13px; font-weight: 600; color: var(--accent); }
+
+      button {
+        font: inherit; font-weight: 600; height: 44px; padding: 0 20px; border-radius: 8px; cursor: pointer;
+        border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg);
+      }
+      button:hover { border-color: var(--muted); }
+      button:active { transform: translateY(1px); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+      button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      button.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+      button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+      .actions { display: flex; align-items: center; gap: 14px; }
+      .actions .hint { margin-left: auto; }
+      @media (max-width: 480px) {
+        .actions button { flex: 1; }
+        .actions .hint { display: none; }
+      }
+      #fullscreen { flex: none; height: 28px; width: 28px; padding: 0; display: grid; place-items: center; border-color: transparent; background: none; color: var(--muted); }
+      #fullscreen:hover { color: var(--fg); border-color: var(--line-strong); }
+      #fullscreen svg { width: 16px; height: 16px; }
+
+      .note { margin: 0; display: flex; gap: 10px; font-size: 13px; color: var(--muted); }
+      .note svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+
+      /* Loading: the stages, each pending, current, done or failed. */
+      #loading-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+      #steps li { position: relative; display: flex; align-items: center; gap: 12px; min-height: 30px; color: var(--muted); }
+      #steps li::before {
+        content: ""; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line-strong);
+      }
+      #steps li.done { color: var(--fg); }
+      #steps li.done::before { border-color: var(--accent); background: var(--accent); }
+      #steps li.done::after {
+        content: ""; position: absolute; left: 6px; top: 50%; width: 6px; height: 10px; margin-top: -7px;
+        border: solid var(--accent-fg); border-width: 0 2px 2px 0; transform: rotate(45deg);
+      }
+      #steps li.current { color: var(--fg); font-weight: 600; }
+      #steps li.current::before { border-color: var(--accent-soft); border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
+      #steps li.failed { color: var(--danger); font-weight: 600; }
+      #steps li.failed::before { border-color: var(--danger); background: var(--danger); }
+      #steps li.failed::after {
+        content: "!"; position: absolute; left: 0; width: 18px; text-align: center; font: 700 12px/30px var(--sans); color: var(--surface);
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        #steps li.current::before { animation: none; border-color: var(--accent); }
+        button:active { transform: none; }
+      }
+      .failure { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 10px; background: var(--danger-soft); border: 1px solid var(--danger-line); }
+      .failure h2 { margin: 0; font-size: 15px; color: var(--danger); }
+      #failure-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .failure button { align-self: flex-start; }
+    </style>
+    <script type="module" src="./page.ts"></script>
+  </head>
+  <body>
+    <header id="bar" hidden>
+      <span class="brand">GEMS<span class="wide"> Playground</span></span>
+      <span id="emulator" class="mono"></span>
+      <span id="feed" class="mono"></span>
+      <span id="status" role="status"></span>
+      <button id="fullscreen" type="button" title="Fullscreen" aria-label="Fullscreen" hidden>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" /></svg>
+      </button>
+    </header>
+    <div id="stage"></div>
+
+    <main id="landing" class="screen" hidden>
+      <div class="column">
+        <div class="intro">
+          <p class="wordmark">GEMS Playground</p>
+          <h1>Run a GameMaker game with a GEMS emulator</h1>
+          <p class="lede">The reference host for the GEMS protocol. Give it an emulator's update feed and a game, and the game runs here, in this tab.</p>
+        </div>
+        <form id="emulator-form" class="card" novalidate>
+          <div class="field">
+            <label class="label" for="emulator-url">Emulator feed</label>
+            <p class="hint" id="emulator-hint">The URL of the emulator's <code>latest.json</code>.</p>
+            <input id="emulator-url" type="url" placeholder="https://example.com/latest.json"
+              autocomplete="url" spellcheck="false" aria-describedby="emulator-hint emulator-error" />
+            <p class="error" id="emulator-error" hidden></p>
+          </div>
+          <div class="field" id="game-field">
+            <span class="label" id="game-label">Game folder</span>
+            <label class="picker" id="picker">
+              <input id="game-picker" type="file" webkitdirectory aria-labelledby="game-label" aria-describedby="picked-meta game-error" />
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 5.5a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1z" /></svg>
+              <span class="text">
+                <span class="name" id="picked">Choose a folder</span>
+                <span class="meta" id="picked-meta">The folder that holds the game's .exe or data.win</span>
+              </span>
+              <span class="browse" id="browse" aria-hidden="true">Browse</span>
+            </label>
+            <p class="error" id="game-error" hidden></p>
+          </div>
+          <div class="field" id="served" hidden>
+            <span class="label">Game</span>
+            <div class="picker static">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4.5 10.5 3.5 3.5 7.5-8" /></svg>
+              <span class="text">
+                <span class="name">Served game</span>
+                <span class="meta" id="served-meta"></span>
+              </span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary" type="submit">Start</button>
+            <p class="hint">or press Enter</p>
+          </div>
+        </form>
+        <p class="note">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>
+          <span>Nothing you pick leaves this browser. Every emulator you load runs with this page's origin, so it can read the saves of every game played here.</span>
+        </p>
+      </div>
+    </main>
+
+    <main id="loading" class="screen" hidden>
+      <div class="column">
+        <div class="intro">
+          <p class="wordmark">GEMS Playground</p>
+          <h1 id="loading-title">Starting the game</h1>
+          <p class="lede mono" id="loading-what"></p>
+        </div>
+        <div class="card">
+          <ol id="steps">
+            <li>Fetching the feed</li>
+            <li>Downloading the emulator</li>
+            <li>Verifying the download</li>
+            <li>Loading the emulator</li>
+            <li>Reading the game</li>
+            <li>Starting</li>
+          </ol>
+          <div class="failure" id="failure" role="alert" hidden>
+            <h2 id="failure-title"></h2>
+            <p id="failure-text" class="mono"></p>
+            <button id="back" type="button">Back</button>
+          </div>
+        </div>
+        <p class="sr-only" id="live" role="status"></p>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+name: Deploy
+
+# Started by hand (Actions > Deploy > Run workflow), from main only. Builds the Playground into site/
+# and deploys it to the Cloudflare Pages project `gems`. The Cloudflare secrets live in the `deploy`
+# environment, which only main can deploy to.
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: deploy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node runtime/build.ts
+      - run: pnpm exec wrangler pages deploy site --project-name gems --branch main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
