@@ -26,6 +26,15 @@ export interface EngineCapabilities {
   clock?: "host" | "engine";
 }
 
+export interface Credit {
+  name: string;
+  license: string;
+  url: string;
+  copyright?: string;
+  upstream?: string;
+  note?: string;
+}
+
 export interface PluginManifest {
   id: string;
   version: string;
@@ -37,6 +46,7 @@ export interface PluginManifest {
   homepage?: string;
   author?: string;
   updates?: string;
+  credits?: Credit[];
   assets?: { path: string; bytes?: number; url?: string; optional?: boolean }[];
   capabilities: EngineCapabilities;
 }

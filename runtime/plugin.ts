@@ -2,6 +2,7 @@
 
 import {
   ERROR_CODES,
+  type Credit,
   REVISION,
   type EnginePlugin,
   type ErrorCode,
@@ -55,7 +56,23 @@ export function validateManifest(json: unknown): PluginManifest {
     else m[key] = text;
   }
   for (const key of ["homepage", "updates"] as const) if (!isHttpsUrl(m[key])) delete m[key];
+  if (!Array.isArray(m.credits)) delete m.credits;
+  else m.credits = m.credits.map(cleanCredit).filter((c): c is Credit => c !== undefined).slice(0, 20);
   return m as PluginManifest;
+}
+
+// A credit needs name, license and url; a malformed optional field is dropped, a malformed entry too (§3.2).
+function cleanCredit(c: any): Credit | undefined {
+  const text = (v: unknown, max: number) => (typeof v === "string" && v.trim() !== "" && v.trim().length <= max ? v.trim() : undefined);
+  if (typeof c !== "object" || c === null) return undefined;
+  const name = text(c.name, 80), license = text(c.license, 80);
+  if (name === undefined || license === undefined || !isHttpsUrl(c.url)) return undefined;
+  const out: Credit = { name, license, url: c.url };
+  const copyright = text(c.copyright, 200), note = text(c.note, 280);
+  if (copyright !== undefined) out.copyright = copyright;
+  if (note !== undefined) out.note = note;
+  if (isHttpsUrl(c.upstream)) out.upstream = c.upstream;
+  return out;
 }
 
 // Not URL.parse: it needs a 2024 browser, and older ones would throw on a field meant to be dropped.
