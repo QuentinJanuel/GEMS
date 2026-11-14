@@ -79,6 +79,23 @@ test("a malformed description, homepage, author or updates is dropped, not refus
   assert.equal(validateManifest({ ...manifest, author: ` ${"x".repeat(80)} ` }).author, "x".repeat(80));
 });
 
+test("a manifest's credits keep valid entries and drop malformed ones (§3.2)", () => {
+  const ok = { name: "Core", license: "MIT", url: "https://example.org/core" };
+  const credits = validateManifest({
+    ...manifest,
+    credits: [
+      { ...ok, name: " Core ", copyright: "(c) A", upstream: "http://x.org", note: 7 },
+      { ...ok, url: "http://example.org" },
+      { ...ok, license: "" },
+      "nope",
+      ...Array.from({ length: 25 }, () => ok),
+    ],
+  }).credits;
+  assert.deepEqual(credits?.[0], { ...ok, copyright: "(c) A" });
+  assert.equal(credits?.length, 20);
+  assert.equal(validateManifest({ ...manifest, credits: "x" }).credits, undefined);
+});
+
 test("a manifest with a bad homepage loads without it (§3.2)", () => {
   for (const homepage of ["not a url", "http://example.org"]) {
     assert.equal(validateManifest({ ...manifest, homepage }).homepage, undefined, homepage);

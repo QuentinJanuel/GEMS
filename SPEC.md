@@ -80,8 +80,18 @@ interface PluginManifest {
   homepage?: string;     // an https URL, at most 2048 characters; where to read more
   author?: string;       // at most 80 characters; who makes the engine
   updates?: string;      // an https URL, at most 2048 characters; this plugin's update feed (§3.4)
+  credits?: Credit[];    // at most 20; what the plugin ships and under which licence (see below)
   assets?: PluginAsset[];
   capabilities: EngineCapabilities;  // required
+}
+
+interface Credit {
+  name: string;          // at most 80 characters; the component
+  license: string;       // at most 80 characters; an SPDX expression or a short licence name
+  url: string;           // an https URL, at most 2048 characters; the source of what the plugin ships
+  copyright?: string;    // at most 200 characters
+  upstream?: string;     // an https URL, at most 2048 characters; the upstream project
+  note?: string;         // at most 280 characters
 }
 
 interface PluginAsset {
@@ -110,6 +120,10 @@ interface EngineCapabilities {
   SHOULD drop a malformed value (a non-string, a string that is empty after trimming or over its
   limit, a URL that does not parse or is not https) rather than refuse the manifest. Absent means
   unspecified.
+- `credits` is advisory too: a plugin states its own licences so a host can show them truthfully in
+  its engine list. It is an array because one plugin can ship several components (an emulator and
+  bundled DLLs, say). A host SHOULD drop an entry missing `name`, `license` or an https `url`, drop
+  a malformed optional field of an entry, and ignore entries past the twentieth.
 - `formats` lists the kinds of game file the engine can run, as ids matching `[a-z0-9_-]+`, at most
   24 characters each. The vocabulary is open. This revision defines `gm8` (GameMaker 8.x), `gms1`
   (GameMaker Studio 1.x) and `gms2` (GameMaker Studio 2, and GameMaker from 2022 on). A host MUST
@@ -884,7 +898,7 @@ Added within revision 5, with no change to the host or plugin interface: the for
 an engine that diverges from its profile is non-conforming until it is fixed.
 
 Added within revision 5 as advisory manifest keys, which a host may ignore (§3.2): `name`,
-`formats`, `description`, `homepage`, `author` and `updates`.
+`formats`, `description`, `homepage`, `author` and `updates`; and, the same way, `credits`.
 
 Added within revision 5, outside the interface, so no implementation is affected: the update feed
 (§3.4), and its optional `icon`.
